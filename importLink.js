@@ -1,20 +1,30 @@
-// Load environment variables from .env file
 require("dotenv").config();
-
 const { google } = require("googleapis");
 const axios = require("axios");
 const cheerio = require("cheerio");
+const fs = require("fs");
+const path = require("path");
 
-// Decode the base64-encoded credentials from environment variable
-const credentials = JSON.parse(
-  Buffer.from(process.env.GOOGLE_CREDENTIALS_BASE64, "base64").toString("utf-8")
-);
+// Load credentials from environment OR local file
+let credentials;
+if (process.env.GOOGLE_CREDENTIALS_BASE64) {
+  credentials = JSON.parse(
+    Buffer.from(process.env.GOOGLE_CREDENTIALS_BASE64, "base64").toString("utf-8")
+  );
+} else {
+  const filePath = path.join(__dirname, "credentials.json");
+  if (!fs.existsSync(filePath)) {
+    console.error("❌ credentials.json not found and GOOGLE_CREDENTIALS_BASE64 not set.");
+    process.exit(1);
+  }
+  credentials = JSON.parse(fs.readFileSync(filePath, "utf-8"));
+}
 
 // Spreadsheet configuration
 const SPREADSHEET_ID = "1bsS9b0FDjzPghhAfMW0YRsTdNnKdN6QMC6TS8vxlsJg";
 const SHEET_NAME = "Sheet2";
 
-// Authorize Google Sheets API using service account credentials
+// Authorize Google Sheets API
 async function authorize() {
   const auth = new google.auth.JWT(
     credentials.client_email,
@@ -26,7 +36,7 @@ async function authorize() {
   return google.sheets({ version: "v4", auth });
 }
 
-// Fetch the target URL from the sheet cell B2
+// Fetch URL from Sheet2!B2
 async function getUrlFromSheet(sheets) {
   const res = await sheets.spreadsheets.values.get({
     spreadsheetId: SPREADSHEET_ID,
@@ -35,7 +45,7 @@ async function getUrlFromSheet(sheets) {
   return res.data.values?.[0]?.[0];
 }
 
-// Scrape all hyperlinks from the fetched URL
+// Scrape all hyperlinks from the URL
 async function fetchHyperlinks(url) {
   const { data } = await axios.get(url);
   const $ = cheerio.load(data);
@@ -47,7 +57,7 @@ async function fetchHyperlinks(url) {
   return links;
 }
 
-// Write the hyperlinks to the sheet starting from cell B6
+// Write links to Sheet2!B6
 async function writeLinksToSheet(sheets, links) {
   await sheets.spreadsheets.values.update({
     spreadsheetId: SPREADSHEET_ID,
@@ -57,7 +67,7 @@ async function writeLinksToSheet(sheets, links) {
   });
 }
 
-// Main function to run everything
+// Main function
 (async () => {
   try {
     const sheets = await authorize();

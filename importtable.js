@@ -1,18 +1,39 @@
+require('dotenv').config();
 const { google } = require('googleapis');
 const axios = require('axios');
-const { JWT } = require('google-auth-library');
-const credentials = require('./credentials.json'); // Ensure this file exists and is valid
+const path = require('path');
+const fs = require('fs');
 
 const spreadsheetId = '1bsS9b0FDjzPghhAfMW0YRsTdNnKdN6QMC6TS8vxlsJg';
 const sheet3Range = 'Sheet3!B3:B';
 const sheet5Range = 'Sheet5!C3:X';
 
-// Google Sheets Auth
-const auth = new JWT({
-  email: credentials.client_email,
-  key: credentials.private_key,
-  scopes: ['https://www.googleapis.com/auth/spreadsheets'],
-});
+function getGoogleAuthClient() {
+  const credPath = path.join(__dirname, 'credentials.json');
+
+  if (fs.existsSync(credPath)) {
+    const creds = require(credPath);
+    return new google.auth.JWT(
+      creds.client_email,
+      null,
+      creds.private_key,
+      ['https://www.googleapis.com/auth/spreadsheets']
+    );
+  }
+
+  const base64 = process.env.GOOGLE_CREDENTIALS_BASE64 || '';
+  const jsonStr = Buffer.from(base64, 'base64').toString('utf-8').replace(/\\n/g, '\n');
+  const creds = JSON.parse(jsonStr);
+
+  return new google.auth.JWT(
+    creds.client_email,
+    null,
+    creds.private_key,
+    ['https://www.googleapis.com/auth/spreadsheets']
+  );
+}
+
+const auth = getGoogleAuthClient();
 const sheets = google.sheets({ version: 'v4', auth });
 
 // Step 1: Get URLs from Sheet3
@@ -43,7 +64,6 @@ async function fetchTableData(url) {
     const tables = html.match(/<table[\s\S]*?<\/table>/gi);
     if (!tables || tables.length < 4) return [];
 
-    // Extract metadata
     const metaText = tables[2].replace(/<[^>]+>/g, " ").replace(/\s+/g, ' ').toUpperCase();
 
     const extractValue = (label, nextLabel) => {
@@ -59,7 +79,6 @@ async function fetchTableData(url) {
     const state = "MADHYA PRADESH";
     const finYear = (url.match(/fin_year=([\d\-]+)/i) || [null, "UNKNOWN"])[1];
 
-    // Extract data rows (skip header and footer)
     const rowMatches = tables[3].match(/<tr[\s\S]*?<\/tr>/gi);
     if (!rowMatches || rowMatches.length <= 4) return [];
 
@@ -80,7 +99,7 @@ async function fetchTableData(url) {
   }
 }
 
-// Step 4: Write all collected data to Sheet5
+// Step 4: Write data to Sheet5
 async function writeDataToSheet(data) {
   if (data.length === 0) return 0;
 
@@ -92,7 +111,7 @@ async function writeDataToSheet(data) {
 
   const startRow = 3;
   const endRow = startRow + values.length - 1;
-  const endCol = String.fromCharCode(67 + maxCols - 1); // 67 = ASCII for 'C'
+  const endCol = String.fromCharCode(67 + maxCols - 1); // 67 = 'C'
   const range = `Sheet5!C${startRow}:${endCol}${endRow}`;
 
   await sheets.spreadsheets.values.update({
@@ -105,12 +124,12 @@ async function writeDataToSheet(data) {
   return values.length;
 }
 
-// Main function to run all steps
+// Main
 async function importAndFlattenTables() {
   try {
     await clearSheetData();
 
-    // Write column headers
+    // Write header
     const headers = ["STATE", "DISTRICT", "BLOCK", "PANCHAYAT", "FIN YEAR"];
     await sheets.spreadsheets.values.update({
       spreadsheetId,
@@ -122,8 +141,7 @@ async function importAndFlattenTables() {
     const urls = await getUrlsFromSheet();
     console.log(`🌐 Found ${urls.length} URLs. Fetching data...`);
 
-    const allDataPromises = urls.map(url => fetchTableData(url));
-    const allDataArrays = await Promise.all(allDataPromises);
+    const allDataArrays = await Promise.all(urls.map(fetchTableData));
     const allData = allDataArrays.flat();
 
     if (allData.length > 0) {
@@ -139,5 +157,4 @@ async function importAndFlattenTables() {
   }
 }
 
-// Start the script
 importAndFlattenTables();
