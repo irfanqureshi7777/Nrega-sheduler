@@ -1,29 +1,28 @@
-name: Daily Run of runall.js
+name: Daily NREGA Scraper Run
 
 on:
   schedule:
-    - cron: '0 1 * * *' # Runs every day at 6:30 AM IST (1 AM UTC)
-  workflow_dispatch: # Manual trigger option
+    - cron: '0 7 * * *'  # Runs daily at 7 AM UTC
+  workflow_dispatch:     # Allows manual triggering
 
 jobs:
-  run-script:
+  run-scraper:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
+    - name: Checkout repo
+      uses: actions/checkout@v3
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: '18'
+    - name: Recreate credentials.json from secret
+      run: echo "${{ secrets.GOOGLE_CREDENTIALS_BASE64 }}" | base64 --decode > credentials.json
 
-      - name: Create credentials.json from secret
-        run: |
-          echo "${{ secrets.GOOGLE_CREDENTIALS_BASE64 }}" | base64 --decode > credentials.json
+    - name: Install Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'   # or whatever Node version you use
 
-      - name: Install dependencies
-        run: npm install
+    - name: Install dependencies
+      run: npm install      # if you have a package.json, otherwise skip
 
-      - name: Run runall.js
-        run: node runall.js
+    - name: Run scraper script
+      run: node runall.js
