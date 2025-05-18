@@ -1,0 +1,29 @@
+name: Daily Run of runall.js
+
+on:
+  schedule:
+    - cron: '0 1 * * *' # Runs every day at 6:30 AM IST (1 AM UTC)
+  workflow_dispatch: # Manual trigger option
+
+jobs:
+  run-script:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+
+      - name: Create credentials.json from secret
+        run: |
+          echo "${{ secrets.GOOGLE_CREDENTIALS_BASE64 }}" | base64 --decode > credentials.json
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run runall.js
+        run: node runall.js
