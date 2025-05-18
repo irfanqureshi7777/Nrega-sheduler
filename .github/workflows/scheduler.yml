@@ -1,0 +1,29 @@
+name: Run NREGA Scraper Daily
+
+on:
+  schedule:
+    - cron: '0 1 * * *'  # Runs daily at 1:00 AM UTC (adjust if needed)
+  workflow_dispatch:     # Allow manual trigger
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '22'  # Use your local Node version
+
+    - name: Install dependencies
+      run: npm install
+
+    - name: Decode credentials.json
+      run: |
+        echo "${{ secrets.GOOGLE_CREDENTIALS_BASE64 }}" | base64 -d > credentials.json
+
+    - name: Run script
+      run: npm start
