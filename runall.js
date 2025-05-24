@@ -1,12 +1,16 @@
 const { execSync } = require("child_process");
 
 function runScript(file) {
-  console.log(`\n▶ Running: ${file}`);
+  const start = new Date().toISOString();
+  console.log(`\n▶ [${start}] Running: ${file}`);
   try {
     execSync(`node ${file}`, { stdio: "inherit" });
-    console.log(`✅ Finished: ${file}`);
+    const end = new Date().toISOString();
+    console.log(`✅ [${end}] Finished: ${file}`);
   } catch (err) {
-    console.error(`❌ Failed: ${file}`);
+    const errorTime = new Date().toISOString();
+    console.error(`❌ [${errorTime}] Failed: ${file}`);
+    process.exit(1); // Exit with failure to stop GitHub Actions run
   }
 }
 
