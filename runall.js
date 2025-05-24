@@ -1,19 +1,21 @@
 const { execSync } = require("child_process");
 
 function runScript(file) {
-  const start = new Date().toISOString();
-  console.log(`\n▶ [${start}] Running: ${file}`);
+  console.log(`\n▶ Running: ${file}`);
   try {
     execSync(`node ${file}`, { stdio: "inherit" });
-    const end = new Date().toISOString();
-    console.log(`✅ [${end}] Finished: ${file}`);
+    console.log(`✅ Finished: ${file}`);
   } catch (err) {
-    const errorTime = new Date().toISOString();
-    console.error(`❌ [${errorTime}] Failed: ${file}`);
-    process.exit(1); // Exit with failure to stop GitHub Actions run
+    console.error(`❌ Failed: ${file}`);
+    console.error(err.message);
   }
 }
 
+function getTimestamp() {
+  return new Date().toISOString();
+}
+
+// List of scripts to run in order
 const filesToRun = process.argv.slice(2).length > 0
   ? process.argv.slice(2)
   : [
@@ -24,6 +26,12 @@ const filesToRun = process.argv.slice(2).length > 0
       "importtable.js",
     ];
 
+console.log("======== NREGA Scraper Started ========");
+console.log("Start time:", getTimestamp());
+
 for (const file of filesToRun) {
   runScript(file);
 }
+
+console.log("======== NREGA Scraper Completed ========");
+console.log("End time:", getTimestamp());
