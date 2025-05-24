@@ -3,15 +3,15 @@ const fs = require('fs');
 const path = require('path');
 const puppeteer = require('puppeteer');
 const { google } = require('googleapis');
-const cron = require('node-cron');
 
 const SHEET_ID    = '1vi-z__fFdVhUZr3PEDjhM83kqhFtbJX0Ejcfu9M8RKo';
 const SHEET_RANGE = 'R1.1!A3';
 const NREGA_URL   = 'https://nreganarep.nic.in/netnrega/app_issue.aspx?page=b&lflag=&state_name=MADHYA+PRADESH&state_code=17&district_name=BALAGHAT&district_code=1738&block_code=1738002&block_name=KHAIRLANJI&fin_year=2025-2026&source=national&Digest=AS/EzXOjY5nZjEFgC7kuSQ';
 
 async function scrapeTables() {
+  console.log('🕸️ Launching browser to scrape tables...');
   const browser = await puppeteer.launch({ headless: "new" });
-  const page    = await browser.newPage();
+  const page = await browser.newPage();
   await page.goto(NREGA_URL, { waitUntil: 'networkidle0' });
 
   const allData = await page.evaluate(() => {
@@ -34,11 +34,11 @@ async function scrapeTables() {
   });
 
   await browser.close();
+  console.log('✅ Scraping complete.');
   return allData;
 }
 
 function getGoogleAuthClient() {
-  // 1) If a local credentials.json exists, use it directly
   const credPath = path.join(__dirname, 'credentials.json');
   if (fs.existsSync(credPath)) {
     const creds = require(credPath);
@@ -50,7 +50,6 @@ function getGoogleAuthClient() {
     );
   }
 
-  // 2) Otherwise, decode from Base64 env var
   let raw = (process.env.GOOGLE_CREDENTIALS_BASE64 || '').replace(/[\r\n]+/g, '');
   let jsonStr = Buffer.from(raw, 'base64').toString('utf-8');
   jsonStr = jsonStr.replace(/\\n/g, '\n');
@@ -79,12 +78,22 @@ async function writeToSheet(data) {
   console.log('✅ Data successfully written to', SHEET_RANGE);
 }
 
-
-
-// Optional: run immediately for testing
+// Run immediately
 (async () => {
-  console.log('🔧 Running immediate test scrape...');
-  const data = await scrapeTables();
-  console.log(`📋 Scraped ${data.length} rows.`);
-  await writeToSheet(data);
+  console.log('🚀 R1.1.js started at', new Date().toLocaleString());
+
+  try {
+    const data = await scrapeTables();
+    console.log(`📋 Scraped ${data.length} rows.`);
+
+    if (data.length === 0) {
+      console.warn('⚠️ No data scraped. Check the site structure or URL.');
+    }
+
+    await writeToSheet(data);
+    console.log('✅ Sheet update completed at', new Date().toLocaleString());
+  } catch (err) {
+    console.error('❌ Error during execution:', err.message);
+    console.error(err);
+  }
 })();
